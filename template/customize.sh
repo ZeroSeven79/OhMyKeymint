@@ -2,7 +2,7 @@
 SKIPUNZIP=1
 
 SONAME="Oh My Keymint"
-SUPPORTED_ABIS="arm64 arm64-v8a"
+SUPPORTED_ABIS="arm64 x64"
 MIN_SDK=29
 
 if [ "$BOOTMODE" ] && [ "$KSU" ]; then
@@ -68,8 +68,8 @@ extract "$ZIPFILE" 'uninstall.sh'    "$MODPATH"
 extract "$ZIPFILE" 'sepolicy.rule'   "$MODPATH"
 extract "$ZIPFILE" 'daemon'          "$MODPATH"
 extract "$ZIPFILE" 'daemon-injector' "$MODPATH"
-extract "$ZIPFILE" 'autoscoop.sh'    "$MODPATH"
 extract "$ZIPFILE" 'soterta.sh'      "$MODPATH"
+extract "$ZIPFILE" 'autoscoop.sh'    "$MODPATH"
 extract "$ZIPFILE" 'injector.toml'   "$MODPATH"
 extract "$ZIPFILE" 'keybox.xml'      "$MODPATH"
 extract "$ZIPFILE" 'webroot.manifest' "$MODPATH"

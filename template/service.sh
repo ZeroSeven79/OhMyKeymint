@@ -34,9 +34,6 @@ start_daemon() {
   return 0
 }
 
-# Same contract as start_daemon, but the script is launched with one extra
-# argument. Passing "script arg" through start_daemon would make the shell
-# look for a file whose name literally contains a space.
 start_daemon_with_arg() {
   script=$1
   arg=$2
@@ -65,7 +62,7 @@ start_daemon "$MODDIR/daemon" "$STATE_DIR/keymint-daemon.pid"
 start_daemon "$MODDIR/daemon-injector" "$STATE_DIR/injector-daemon.pid"
 # Keep the Qualcomm Soter watchdog alive independently of the KeyMint route.
 # It owns vendor.qti.hardware.soter.ISoter/default only when its persistent
-# remote-relay enable flag requests it; otherwise the stock HAL remains active.
+# software-TA takeover flag requests it; otherwise the stock HAL remains active.
 start_daemon "$MODDIR/soterta.sh" "$STATE_DIR/soterta-watchdog.pid"
 # Optional automation: keep scoop aligned with the installed package set.
 # Stays disabled until the WebUI turns it on.
