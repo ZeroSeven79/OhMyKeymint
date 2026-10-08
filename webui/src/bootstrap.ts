@@ -1,10 +1,10 @@
 import { createApp } from 'vue'
 import { enableEdgeToEdge, isKsuWebui } from 'kernelsu-alt'
 import 'miuix-vue/style.css'
-import './global.css'
 import { isSupported, renderBlockingPage } from './webview/webview'
 import App from './vue/App.vue'
 import { i18n } from './i18n'
+import './global.css'
 
 const root = document.querySelector<HTMLDivElement>('#app')!
 

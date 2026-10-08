@@ -11,9 +11,9 @@ import {
 } from 'miuix-vue'
 import { Info, Refresh, Tune } from 'miuix-vue/icons'
 import { Cli, type PifDevice, type PifFingerprintState } from '../cli'
-import SwitchRow from './SwitchRow.vue'
 import { i18n } from '../i18n'
 import { isDev } from '../utils/dev'
+import SwitchRow from './SwitchRow.vue'
 
 type LoadStatus = 'loading' | 'ready' | 'error'
 const RANDOM_SELECTION = '__random__'

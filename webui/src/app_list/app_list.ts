@@ -441,13 +441,6 @@ export class AppList {
     this.#emitChange()
   }
 
-  /**
-   * Align scoop with what is installed right now.
-   *
-   * Returns the size written, or null when nothing changed. Keeps manual
-   * selections and "Add System App" picks: the automatic set may only add or
-   * remove entries it owns.
-   */
   async syncFromInstalled(): Promise<number | null> {
     if (isDev()) return null
     await this.fetch()

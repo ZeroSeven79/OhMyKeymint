@@ -10,7 +10,6 @@
     <string name="functional_button_retry">Retry</string>
     <string name="functional_button_back">Back</string>
     <string name="menu_add_system_app">Add System App</string>
-    <string name="menu_add_system_app_desc">Only add system apps you actually need. Intercepting system services can break unlocking, app storage, or the user interface, and is outside the official support scope.</string>
     <string name="menu_replace_keybox">Change Keybox</string>
     <string name="menu_sync_security_patch">Sync security patch</string>
     <string name="menu_restore_default_security_patch">Restore default security patch</string>
@@ -18,7 +17,7 @@
     <string name="menu_language">Language</string>
     <string name="menu_more_options">More options</string>
     <string name="menu_select_all">Select Recommended Apps</string>
-    <string name="menu_select_recommended_desc">User apps and recommended system apps; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.</string>
+    <string name="menu_select_recommended_desc">User apps and Google services; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.</string>
     <string name="menu_deselect_all">Deselect All</string>
     <string name="menu_refresh">Refresh List</string>
     <string name="app_target_user">User</string>
@@ -208,7 +207,7 @@
     <string name="settings_liquid_glass_desc">Add translucent glass depth to surfaces</string>
     <string name="tools_soter_beta">Tencent Soter compatibility (Beta)</string>
     <string name="tools_soter_beta_desc">Experimental compatibility for Tencent SoterServer. Requires Zygisk Next.</string>
-    <string name="soter_beta_warning">Beta simulation only: returns a fixed public key and zero-filled signatures. This is not real TEE attestation and does not repair payments or cryptographic signatures. Applies only to Tencent SoterServer, not KeyMint.</string>
+    <string name="soter_beta_warning">Beta software test only: uses a publicly known test key and fixed test CPU ID for dynamically signed key exports. Key state resets when Tencent SoterServer restarts. It provides no fingerprint, TEE or payment authentication and does not change KeyMint.</string>
     <string name="soter_beta_enabled">Enable Soter compatibility</string>
     <string name="soter_beta_enabled_desc">Disabled by default. Changes are saved only after you tap Apply.</string>
     <string name="soter_beta_reboot">Install and enable Zygisk Next separately. Restart the device after enabling or disabling. Compatibility is not verified.</string>
@@ -221,16 +220,19 @@
     <string name="tools_diagnostics_refresh">Refresh</string>
     <string name="soter_hal_desc">Configure the Qualcomm Soter service.</string>
     <string name="soter_hal_warning">This feature may cause probabilistic bans of Douyin accounts and other unknown issues. Please consider carefully before enabling it.</string>
+    <string name="soter_hal_enabled">Enable software TA</string>
+    <string name="soter_hal_enabled_desc">The software TA takes over the stock Soter HAL. With the relay off, it uses its local ledger. Turning the software TA off restores the stock HAL.</string>
     <string name="soter_hal_remote_enabled">Enable remote Soter relay</string>
     <string name="soter_hal_url">Soter server URL</string>
     <string name="soter_hal_device_id">B device ID</string>
     <string name="soter_hal_token">Token</string>
     <string name="soter_hal_uid_map">UID mapping (optional)</string>
     <string name="soter_hal_tls_insecure">Accept self-signed TLS certificates</string>
-    <string name="soter_hal_remote_desc">When enabled, this switch takes over the Qualcomm Soter HAL and forwards requests to the configured relay. Disabling it restores the stock HAL.</string>
+    <string name="soter_hal_remote_desc">When the software TA is on, this switch uses the configured remote relay instead of the local ledger. Relay failures never fall back to local keys. Relay settings can be saved while the software TA is off.</string>
     <string name="soter_hal_exclusive">Disable Tencent Soter Beta before enabling the Qualcomm Soter service.</string>
     <string name="soter_hal_saved">Soter HAL configuration saved</string>
     <string name="soter_hal_preview">Preview only. Device settings cannot be saved here.</string>
+    <string name="menu_add_system_app_desc">Only add system apps you actually need. Intercepting system services can break unlocking, app storage, or the user interface, and is outside the official support scope.</string>
     <string name="menu_auto_apps">Auto Manage Package List</string>
     <string name="menu_auto_apps_desc">Adds and removes package names when user apps are installed or uninstalled, following the recommended-selection policy.</string>
     <string name="prompt_auto_apps_enabled">Automatic package sync is on.</string>
