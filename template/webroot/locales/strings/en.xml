@@ -18,13 +18,8 @@
     <string name="menu_language">Language</string>
     <string name="menu_more_options">More options</string>
     <string name="menu_select_all">Select Recommended Apps</string>
-    <string name="menu_select_recommended_desc">User apps and Google services; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.</string>
+    <string name="menu_select_recommended_desc">User apps and recommended system apps; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.</string>
     <string name="menu_deselect_all">Deselect All</string>
-    <string name="menu_auto_apps">Auto Manage Package List</string>
-    <string name="menu_auto_apps_desc">Adds and removes package names when user apps are installed or uninstalled, following the recommended-selection policy.</string>
-    <string name="prompt_auto_apps_enabled">Automatic package sync is on.</string>
-    <string name="prompt_auto_apps_enabled_count">Automatic package sync is on, %1$s apps in total.\nOther package-adding functions are unavailable until it is turned off.\nSystem apps can still be selected manually through Add system app.</string>
-    <string name="prompt_auto_apps_disabled">Automatic package sync is off.</string>
     <string name="menu_refresh">Refresh List</string>
     <string name="app_target_user">User</string>
     <string name="app_target_current_user">Current</string>
@@ -236,4 +231,9 @@
     <string name="soter_hal_exclusive">Disable Tencent Soter Beta before enabling the Qualcomm Soter service.</string>
     <string name="soter_hal_saved">Soter HAL configuration saved</string>
     <string name="soter_hal_preview">Preview only. Device settings cannot be saved here.</string>
+    <string name="menu_auto_apps">Auto Manage Package List</string>
+    <string name="menu_auto_apps_desc">Adds and removes package names when user apps are installed or uninstalled, following the recommended-selection policy.</string>
+    <string name="prompt_auto_apps_enabled">Automatic package sync is on.</string>
+    <string name="prompt_auto_apps_enabled_count">Automatic package sync is on, %1$s apps in total.\nOther package-adding functions are unavailable until it is turned off.\nSystem apps can still be selected manually through Add system app.</string>
+    <string name="prompt_auto_apps_disabled">Automatic package sync is off.</string>
 </resources>

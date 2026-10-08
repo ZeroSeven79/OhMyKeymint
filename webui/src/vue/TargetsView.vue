@@ -456,8 +456,20 @@ defineExpose({
                   <MiuixProgressIndicator v-if="selectingRecommended" type="circular" :size="21" />
                   <MiuixIcon v-else :icon="SelectAll" :size="21" />
                   <span class="targets-menu-label">
-                    <span>{{ translate('menu_select_all', 'Select recommended apps') }}</span>
-                    <small>{{ translate('menu_select_recommended_desc', 'User apps and Google services; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.') }}</small>
+                    <span>{{ translate('menu_select_all', '推荐选择应用') }}</span>
+                    <small>{{ translate('menu_select_recommended_desc', '选择用户应用和推荐系统应用，跳过已识别的 Root、Shizuku 和 Xposed 工具。保留已有勾选。') }}</small>
+                  </span>
+                </MiuixButton>
+                <MiuixButton
+                  role="menuitem"
+                  class="targets-menu-item"
+                  :disabled="loading || selectingRecommended"
+                  @click="openSystemApps"
+                >
+                  <MiuixIcon :icon="AddCircle" :size="21" />
+                  <span class="targets-menu-label">
+                    <span>{{ translate('menu_add_system_app', '添加系统应用') }}</span>
+                    <small>{{ translate('menu_add_system_app_desc', '仅添加确实需要的系统应用。拦截系统服务可能导致解锁、应用存储或界面异常，且不在官方支持范围。') }}</small>
                   </span>
                 </MiuixButton>
                 <MiuixButton
@@ -468,7 +480,7 @@ defineExpose({
                   @click="deselectAll"
                 >
                   <MiuixIcon :icon="Clear" :size="21" />
-                  <span>{{ translate('menu_deselect_all', 'Deselect all') }}</span>
+                  <span>{{ translate('menu_deselect_all', '取消全选') }}</span>
                 </MiuixButton>
                 <MiuixButton
                   role="menuitem"
@@ -478,11 +490,7 @@ defineExpose({
                   @click="refresh"
                 >
                   <MiuixIcon :icon="Refresh" :size="21" />
-                  <span>{{ translate('menu_refresh', 'Refresh') }}</span>
-                </MiuixButton>
-                <MiuixButton role="menuitem" :disabled="loading || selectingRecommended" @click="openSystemApps">
-                  <MiuixIcon :icon="AddCircle" :size="21" />
-                  <span>{{ translate('menu_add_system_app', 'Add System App') }}</span>
+                  <span>{{ translate('menu_refresh', '刷新列表') }}</span>
                 </MiuixButton>
               </MiuixCard>
             </Transition>
