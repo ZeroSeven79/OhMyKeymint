@@ -12,7 +12,6 @@ import {
   MiuixSlider,
   MiuixSmallTitle,
   MiuixSpinnerPreference,
-  MiuixSwitchPreference,
   MiuixTopAppBar,
   type MiuixDropdownItem,
 } from 'miuix-vue'
@@ -31,6 +30,7 @@ import {
   type PaletteStyle,
 } from '../appearance'
 import { i18n } from '../i18n'
+import SwitchRow from './SwitchRow.vue'
 
 interface Choice<T extends string> {
   value: T
@@ -225,7 +225,7 @@ onBeforeUnmount(appearance.onChange(syncAppearanceState))
 
           <div class="settings-divider"><MiuixDivider /></div>
 
-          <MiuixSwitchPreference
+          <SwitchRow
             :model-value="options.monet"
             :title="translate('settings_monet', 'Enable Monet colors')"
             :summary="translate(
@@ -237,7 +237,7 @@ onBeforeUnmount(appearance.onChange(syncAppearanceState))
             <template #start>
               <span class="settings-preference-icon"><MiuixIcon :icon="Background" :size="22" /></span>
             </template>
-          </MiuixSwitchPreference>
+          </SwitchRow>
 
           <template v-if="options.monet">
             <div class="settings-divider"><MiuixDivider /></div>
@@ -285,7 +285,7 @@ onBeforeUnmount(appearance.onChange(syncAppearanceState))
           :text="translate('settings_effects', 'Visual effects')"
         />
         <MiuixCard class="settings-card" press-feedback="none">
-          <MiuixSwitchPreference
+          <SwitchRow
             :model-value="options.barBlur"
             :title="translate('settings_bar_blur', 'Top and bottom bar blur')"
             :summary="translate(
@@ -297,11 +297,11 @@ onBeforeUnmount(appearance.onChange(syncAppearanceState))
             <template #start>
               <span class="settings-preference-icon"><MiuixIcon :icon="Layers" :size="22" /></span>
             </template>
-          </MiuixSwitchPreference>
+          </SwitchRow>
 
           <div class="settings-divider"><MiuixDivider /></div>
 
-          <MiuixSwitchPreference
+          <SwitchRow
             :model-value="options.floatingBottomBar"
             :title="translate('settings_floating_bottom_bar', 'Floating bottom bar')"
             :summary="translate(
@@ -313,11 +313,11 @@ onBeforeUnmount(appearance.onChange(syncAppearanceState))
             <template #start>
               <span class="settings-preference-icon"><MiuixIcon :icon="Sidebar" :size="22" /></span>
             </template>
-          </MiuixSwitchPreference>
+          </SwitchRow>
 
           <template v-if="options.floatingBottomBar">
             <div class="settings-divider"><MiuixDivider /></div>
-            <MiuixSwitchPreference
+            <SwitchRow
               :model-value="options.liquidGlass"
               :title="translate('settings_liquid_glass', 'Liquid glass')"
               :summary="translate(
@@ -329,7 +329,7 @@ onBeforeUnmount(appearance.onChange(syncAppearanceState))
               <template #start>
                 <span class="settings-preference-icon"><MiuixIcon :icon="Theme" :size="22" /></span>
               </template>
-            </MiuixSwitchPreference>
+            </SwitchRow>
           </template>
         </MiuixCard>
       </section>

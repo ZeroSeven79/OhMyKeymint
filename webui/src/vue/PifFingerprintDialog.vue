@@ -8,10 +8,10 @@ import {
   MiuixIcon,
   MiuixProgressIndicator,
   MiuixRadioButtonPreference,
-  MiuixSwitchPreference,
 } from 'miuix-vue'
 import { Info, Refresh, Tune } from 'miuix-vue/icons'
 import { Cli, type PifDevice, type PifFingerprintState } from '../cli'
+import SwitchRow from './SwitchRow.vue'
 import { i18n } from '../i18n'
 import { isDev } from '../utils/dev'
 
@@ -213,14 +213,14 @@ async function apply(): Promise<void> {
   >
     <div class="pif-sheet" :aria-busy="busy">
       <MiuixCard class="pif-card" press-feedback="none">
-        <MiuixSwitchPreference
+        <SwitchRow
           v-model="desiredEnabled"
           :title="tr('pif_enable_spoofing', 'Enable PIF fingerprint spoofing')"
           :summary="tr('pif_zygisk_next_required', 'Install and enable Zygisk Next separately. OMK does not bundle it.')"
           :disabled="busy || stateStatus !== 'ready'"
         >
           <template #start><MiuixIcon :icon="Tune" :size="23" /></template>
-        </MiuixSwitchPreference>
+        </SwitchRow>
       </MiuixCard>
 
       <MiuixCard

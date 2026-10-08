@@ -33,6 +33,8 @@ interface Props {
   appList: AppList
   loading?: boolean
   applyEnabled?: boolean
+  autoAppsEnabled?: boolean
+  autoBusy?: boolean
 }
 
 interface SearchBarInstance extends ComponentPublicInstance {
@@ -44,12 +46,15 @@ type IconState = 'loading' | 'loaded' | 'error'
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
   applyEnabled: true,
+  autoAppsEnabled: false,
+  autoBusy: false,
 })
 
 const emit = defineEmits<{
   close: []
   apply: []
   refresh: []
+  'auto-apps-change': [enabled: boolean]
   'overlay-open': []
   'overlay-close': []
 }>()
@@ -186,6 +191,17 @@ function refresh(): void {
   emit('refresh')
 }
 
+function toggleAutoApps(enabled: boolean): void {
+  if (props.autoBusy) return
+  emit('auto-apps-change', enabled)
+}
+
+// While the automatic manager owns the list, bulk editing paths are disabled:
+// anything they changed would be overwritten by the next install/uninstall
+// refresh. "Add System App" and saving stay available on purpose - system apps
+// are never part of the automatic set, so a manual pick there survives.
+const manualEditsLocked = computed(() => props.autoAppsEnabled)
+
 function apply(): void {
   if (!props.loading && !selectingRecommended.value && props.applyEnabled) emit('apply')
 }
@@ -283,25 +299,78 @@ defineExpose({
 
             <Transition name="targets-menu">
               <MiuixCard v-if="menuOpen" class="targets-menu-popup" role="menu">
-                <MiuixButton role="menuitem" :disabled="loading || selectingRecommended" @click="selectRecommended">
+                <div
+                  class="targets-menu-switch"
+                  role="menuitemcheckbox"
+                  :aria-checked="autoAppsEnabled"
+                  @click="toggleAutoApps(!autoAppsEnabled)"
+                >
+                  <MiuixIcon :icon="SelectAll" :size="21" />
+                  <span class="targets-menu-label">
+                    <span>{{ translate('menu_auto_apps', '自动处理包名列表') }}</span>
+                    <small>{{ translate('menu_auto_apps_desc', '安装或卸载用户应用时、自动添加或移除包名，并走推荐选择应用策略处理。') }}</small>
+                  </span>
+                  <MiuixProgressIndicator
+                    v-if="autoBusy"
+                    class="targets-menu-switch-control"
+                    type="circular"
+                    :size="21"
+                  />
+                  <span
+                    v-else
+                    class="mini-switch"
+                    :class="{ 'mini-switch--on': autoAppsEnabled }"
+                    :aria-hidden="true"
+                  >
+                    <span class="mini-switch__thumb" />
+                  </span>
+                </div>
+
+                <MiuixButton
+                  role="menuitem"
+                  class="targets-menu-item"
+                  :class="{ 'targets-menu-item--disabled': manualEditsLocked }"
+                  :disabled="loading || selectingRecommended || manualEditsLocked"
+                  @click="selectRecommended"
+                >
                   <MiuixProgressIndicator v-if="selectingRecommended" type="circular" :size="21" />
                   <MiuixIcon v-else :icon="SelectAll" :size="21" />
                   <span class="targets-menu-label">
-                    <span>{{ translate('menu_select_all', 'Select recommended apps') }}</span>
-                    <small>{{ translate('menu_select_recommended_desc', 'User apps and Google services; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.') }}</small>
+                    <span>{{ translate('menu_select_all', '推荐选择应用') }}</span>
+                    <small>{{ translate('menu_select_recommended_desc', '选择用户应用和推荐系统应用，跳过已识别的 Root、Shizuku 和 Xposed 工具。保留已有勾选。') }}</small>
                   </span>
                 </MiuixButton>
-                <MiuixButton role="menuitem" :disabled="selectingRecommended" @click="deselectAll">
-                  <MiuixIcon :icon="Clear" :size="21" />
-                  <span>{{ translate('menu_deselect_all', 'Deselect all') }}</span>
-                </MiuixButton>
-                <MiuixButton role="menuitem" :disabled="loading || selectingRecommended" @click="refresh">
-                  <MiuixIcon :icon="Refresh" :size="21" />
-                  <span>{{ translate('menu_refresh', 'Refresh') }}</span>
-                </MiuixButton>
-                <MiuixButton role="menuitem" :disabled="loading || selectingRecommended" @click="openSystemApps">
+                <MiuixButton
+                  role="menuitem"
+                  class="targets-menu-item"
+                  :disabled="loading || selectingRecommended"
+                  @click="openSystemApps"
+                >
                   <MiuixIcon :icon="AddCircle" :size="21" />
-                  <span>{{ translate('menu_add_system_app', 'Add System App') }}</span>
+                  <span class="targets-menu-label">
+                    <span>{{ translate('menu_add_system_app', '添加系统应用') }}</span>
+                    <small>{{ translate('menu_add_system_app_desc', '仅添加确实需要的系统应用。拦截系统服务可能导致解锁、应用存储或界面异常，且不在官方支持范围。') }}</small>
+                  </span>
+                </MiuixButton>
+                <MiuixButton
+                  role="menuitem"
+                  class="targets-menu-item"
+                  :class="{ 'targets-menu-item--disabled': manualEditsLocked }"
+                  :disabled="selectingRecommended || manualEditsLocked"
+                  @click="deselectAll"
+                >
+                  <MiuixIcon :icon="Clear" :size="21" />
+                  <span>{{ translate('menu_deselect_all', '取消全选') }}</span>
+                </MiuixButton>
+                <MiuixButton
+                  role="menuitem"
+                  class="targets-menu-item"
+                  :class="{ 'targets-menu-item--disabled': manualEditsLocked }"
+                  :disabled="loading || selectingRecommended || manualEditsLocked"
+                  @click="refresh"
+                >
+                  <MiuixIcon :icon="Refresh" :size="21" />
+                  <span>{{ translate('menu_refresh', '刷新列表') }}</span>
                 </MiuixButton>
               </MiuixCard>
             </Transition>
@@ -340,7 +409,7 @@ defineExpose({
           v-memo="[entry.selected, entry.appName, iconState(entry.packageName), selectingRecommended]"
           :key="entry.packageName"
           :model-value="entry.selected"
-          :disabled="selectingRecommended"
+          :disabled="selectingRecommended || manualEditsLocked"
           :title="entry.appName"
           :summary="entry.packageName"
           location="end"
@@ -578,6 +647,83 @@ defineExpose({
   font-size: 13px;
   font-weight: 400;
   line-height: 1.4;
+}
+
+.targets-menu-switch {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.targets-menu-switch:active {
+  background: color-mix(in srgb, var(--m-color-on-surface) 7%, transparent);
+}
+
+.targets-menu-switch .targets-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.targets-menu-switch-control {
+  flex: none;
+  margin-inline-start: 4px;
+}
+
+/* Locked while the automatic manager owns the list. The library button drops
+   its ripple but keeps normal colours, so the disabled state is drawn here. */
+.targets-menu-item--disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.targets-menu-item--disabled :deep(.m-text),
+.targets-menu-item--disabled .targets-menu-label,
+.targets-menu-item--disabled .targets-menu-label small {
+  color: var(--m-color-on-surface-variant-summary);
+  text-decoration: line-through;
+}
+
+/* Own switch control: the component library's switch reacts to pointer events
+   only, which is unreliable inside a scrollable popup on Android WebView. */
+.mini-switch {
+  flex: none;
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 42px;
+  height: 25px;
+  margin-inline-start: 4px;
+  border-radius: 999px;
+  background: var(--m-color-secondary, rgba(120, 120, 128, 0.32));
+  transition: background-color 160ms ease;
+}
+
+.mini-switch--on {
+  background: var(--m-color-primary);
+}
+
+.mini-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  box-sizing: border-box;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
+  transition: transform 160ms ease;
+}
+
+.mini-switch--on .mini-switch__thumb {
+  transform: translateX(17px);
 }
 
 .targets-menu-popup :deep(.m-button:hover),

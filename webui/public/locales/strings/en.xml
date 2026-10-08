@@ -10,16 +10,17 @@
     <string name="functional_button_retry">Retry</string>
     <string name="functional_button_back">Back</string>
     <string name="menu_add_system_app">Add System App</string>
+    <string name="menu_add_system_app_desc">Only add system apps you actually need. Intercepting system services can break unlocking, app storage, or the user interface, and is outside the official support scope.</string>
     <string name="menu_replace_keybox">Change Keybox</string>
     <string name="menu_sync_security_patch">Sync security patch</string>
     <string name="menu_restore_default_security_patch">Restore default security patch</string>
     <string name="menu_spoof_pif_fingerprint">Spoof PIF fingerprint</string>
     <string name="menu_language">Language</string>
     <string name="menu_more_options">More options</string>
-    <string name="menu_select_all">Select recommended apps</string>
+    <string name="menu_select_all">Select Recommended Apps</string>
     <string name="menu_select_recommended_desc">User apps and Google services; skip recognized Root, Shizuku and Xposed tools. Keep existing selections.</string>
-    <string name="menu_deselect_all">Deselect all</string>
-    <string name="menu_refresh">Refresh</string>
+    <string name="menu_deselect_all">Deselect All</string>
+    <string name="menu_refresh">Refresh List</string>
     <string name="prompt_saved_target">Config saved</string>
     <string name="prompt_save_error">Failed to save config</string>
     <string name="prompt_load_error">Failed to load the OMK app list. Saving is disabled.</string>
@@ -181,4 +182,9 @@
     <string name="soter_hal_saved">Feature enabled</string>
     <string name="soter_hal_disabled">Feature disabled</string>
     <string name="soter_hal_preview">Preview only. Device settings cannot be saved here.</string>
+    <string name="menu_auto_apps">Auto Manage Package List</string>
+    <string name="menu_auto_apps_desc">Adds and removes package names when user apps are installed or uninstalled, following the recommended-selection policy.</string>
+    <string name="prompt_auto_apps_enabled">Automatic package sync is on.</string>
+    <string name="prompt_auto_apps_enabled_count">Automatic package sync is on, %1$s apps in total.\nOther package-adding functions are unavailable until it is turned off.\nSystem apps can still be selected manually through Add system app.</string>
+    <string name="prompt_auto_apps_disabled">Automatic package sync is off.</string>
 </resources>

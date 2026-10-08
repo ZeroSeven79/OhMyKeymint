@@ -1,0 +1,18 @@
+/* Snackbars are teleported to <body>, so scoped component styles cannot reach
+   them.
+
+   Two overrides are needed for multi-line messages:
+   - `white-space: pre-line` keeps "\n" separators from being collapsed.
+   - The library clamps the message to two lines, which silently truncates
+     anything longer. Setting the clamp to `unset` lets all lines show. */
+.m-snackbar__message {
+  white-space: pre-line;
+  /* Restore normal block flow so the clamp cannot truncate the message. */
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  max-height: none;
+}

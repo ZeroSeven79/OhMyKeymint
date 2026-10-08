@@ -4,9 +4,9 @@ import {
   MiuixButton,
   MiuixDialog,
   MiuixProgressIndicator,
-  MiuixSwitchPreference,
 } from 'miuix-vue'
 import { Cli } from '../cli'
+import SwitchRow from './SwitchRow.vue'
 import { i18n } from '../i18n'
 import { isDev } from '../utils/dev'
 
@@ -110,7 +110,7 @@ async function apply(): Promise<void> {
         <MiuixProgressIndicator type="circular" :size="28" />
         <span>{{ tr('home_status_loading', 'Checking') }}</span>
       </div>
-      <MiuixSwitchPreference
+      <SwitchRow
         v-else-if="status === 'ready'"
         v-model="enabled"
         :title="tr('soter_beta_enabled', 'Enable Soter compatibility')"

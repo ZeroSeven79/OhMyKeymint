@@ -20,6 +20,14 @@ import { History } from '../history'
 import { i18n } from '../i18n'
 import { fetchLatestSecurityPatch } from '../security_patch'
 import { isDev } from '../utils/dev'
+import {
+  disableAutoPackages,
+  ensureDaemon,
+  readAutomationState,
+  readDiagnostics,
+  writeAutomationState,
+  type AutomationState,
+} from '../autoscoop'
 import HomeView, { type KeyboxStatus, type ModuleStatus, type TeeStatus } from './HomeView.vue'
 import PifFingerprintDialog from './PifFingerprintDialog.vue'
 import SettingsView from './SettingsView.vue'
@@ -60,6 +68,10 @@ const pifOpen = ref(false)
 const keyboxOpen = ref(false)
 const selectedKeybox = ref<{ name: string, contents: Uint8Array } | null>(null)
 const keyboxBusy = ref(false)
+const automation = ref<AutomationState>({
+  autoApps: false,
+})
+const automationBusy = ref(false)
 const targetsView = ref<InstanceType<typeof TargetsView> | null>(null)
 const settingsView = ref<InstanceType<typeof SettingsView> | null>(null)
 const pifDialog = ref<InstanceType<typeof PifFingerprintDialog> | null>(null)
@@ -285,6 +297,11 @@ async function reloadApps(readConfig: boolean): Promise<void> {
   try {
     if (readConfig) await config.read()
     await appList.fetch()
+    // Keep scoop aligned every time the list is rebuilt, so apps installed or
+    // removed while the WebUI was closed are picked up on the next open.
+    if (automation.value.autoApps && config.isWritable) {
+      await appList.syncFromInstalled()
+    }
     snapshot.value = appList.getSnapshot()
     moduleStatus.value = config.isWritable ? 'ready' : 'error'
   } catch (error) {
@@ -422,6 +439,51 @@ async function syncPatch(restore: boolean): Promise<void> {
   }
 }
 
+async function refreshAutomation(): Promise<void> {
+  if (isDev()) return
+  await ensureDaemon()
+  automation.value = await readAutomationState()
+}
+
+async function onAutoAppsChange(enabled: boolean): Promise<void> {
+  if (automationBusy.value || isDev()) return
+  automationBusy.value = true
+  try {
+    // Tell the background helper first; it is best-effort only, because the
+    // actual write below goes through the WebUI bridge that already works for
+    // manual selections.
+    try {
+      if (enabled) automation.value = await writeAutomationState({ autoApps: true })
+      else {
+        await disableAutoPackages()
+        automation.value = await readAutomationState()
+      }
+    } catch (backendError) {
+      console.error('autoscoop backend unavailable:', backendError, await readDiagnostics())
+    }
+
+    if (enabled) {
+      // Prefer the size the refresh actually wrote. Recounting after a reload
+      // reads the list back through the bridge, which can disagree with the
+      // write by a package and report a different number on every toggle.
+      const written = await appList.syncFromInstalled()
+      await reloadApps(true)
+      // Always report the resulting size, even when nothing changed: the count
+      // is what the user needs to confirm the automation took effect.
+      const count = written ?? appList.getSelectedCount()
+      notify(i18n.t('prompt_auto_apps_enabled_count', String(count)))
+    } else {
+      await reloadApps(true)
+      notify(i18n.t('prompt_auto_apps_disabled'))
+    }
+  } catch (error) {
+    console.error('Unable to change automatic package sync:', error)
+    notify(error instanceof Error ? error.message : String(error), true)
+  } finally {
+    automationBusy.value = false
+  }
+}
+
 function onTool(event: ToolEvent): void {
   switch (event) {
     case 'openAppTargets': openTargets(); break
@@ -482,6 +544,7 @@ onMounted(async () => {
     }
   })
   await Promise.all([reloadApps(true), refreshIdentity(), refreshActivity()])
+  await refreshAutomation()
 })
 
 onBeforeUnmount(() => {
@@ -638,9 +701,12 @@ watch(keyboxOpen, open => {
         :app-list="appList"
         :loading="targetsLoading"
         :apply-enabled="snapshot.isWritable"
+        :auto-apps-enabled="automation.autoApps"
+        :auto-busy="automationBusy"
         @close="closeTargets"
         @refresh="reloadApps(false)"
         @apply="saveTargets"
+        @auto-apps-change="onAutoAppsChange"
         @overlay-open="onTargetsOverlayOpen"
         @overlay-close="onTargetsOverlayClose"
       />

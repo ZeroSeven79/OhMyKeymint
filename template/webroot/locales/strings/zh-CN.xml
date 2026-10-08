@@ -10,16 +10,17 @@
     <string name="functional_button_retry">重试</string>
     <string name="functional_button_back">返回</string>
     <string name="menu_add_system_app">添加系统应用</string>
+    <string name="menu_add_system_app_desc">仅添加确实需要的系统应用。拦截系统服务可能导致解锁、应用存储或界面异常，且不在官方支持范围。</string>
     <string name="menu_replace_keybox">更换Keybox</string>
     <string name="menu_sync_security_patch">同步安全补丁</string>
     <string name="menu_restore_default_security_patch">恢复默认安全补丁</string>
     <string name="menu_spoof_pif_fingerprint">伪装 PIF 指纹</string>
     <string name="menu_language">语言</string>
     <string name="menu_more_options">更多选项</string>
-    <string name="menu_select_all">推荐选择</string>
-    <string name="menu_select_recommended_desc">选择用户应用和谷歌服务，跳过已识别的 Root、Shizuku 和 Xposed 工具。保留已有勾选。</string>
+    <string name="menu_select_all">推荐选择应用</string>
+    <string name="menu_select_recommended_desc">选择用户应用和推荐系统应用，跳过已识别的 Root、Shizuku 和 Xposed 工具。保留已有勾选。</string>
     <string name="menu_deselect_all">取消全选</string>
-    <string name="menu_refresh">刷新</string>
+    <string name="menu_refresh">刷新列表</string>
     <string name="prompt_saved_target">配置已保存</string>
     <string name="prompt_save_error">保存配置失败</string>
     <string name="prompt_load_error">无法读取 OMK 应用列表，保存功能已禁用。</string>
@@ -29,9 +30,9 @@
     <string name="prompt_keybox_replace_error">更换Keybox失败：%s</string>
     <string name="prompt_security_patch_synced">安全补丁已同步。</string>
     <string name="prompt_security_patch_synced_date">安全补丁已同步至 %s。</string>
-    <string name="prompt_security_patch_sync_complete">同步安全补丁完成（%s），请重启设备</string>
+    <string name="prompt_security_patch_sync_complete">同步安全补丁完成（%s），请重启设备。</string>
     <string name="prompt_security_patch_sync_error">同步安全补丁失败：%s</string>
-    <string name="prompt_security_patch_restored_default">已恢复默认安全补丁，请重启设备</string>
+    <string name="prompt_security_patch_restored_default">已恢复默认安全补丁，请重启设备。</string>
     <string name="prompt_security_patch_restore_error">恢复默认安全补丁失败：%s</string>
     <string name="add_system_app_title">添加系统应用</string>
     <string name="replace_keybox_title">更换Keybox</string>
@@ -181,4 +182,9 @@
     <string name="soter_hal_saved">功能已启用</string>
     <string name="soter_hal_disabled">功能已关闭</string>
     <string name="soter_hal_preview">仅为界面预览，此处无法保存设备设置。</string>
+    <string name="menu_auto_apps">自动处理包名列表</string>
+    <string name="menu_auto_apps_desc">安装或卸载用户应用时、自动添加或移除包名，并走推荐选择应用策略处理。</string>
+    <string name="prompt_auto_apps_enabled">已开启包名自动同步。</string>
+    <string name="prompt_auto_apps_enabled_count">已开启包名自动同步，当前共%1$s个应用。\n其他包名添加功能将不可用，直到关闭。\n仍可通过添加系统应用手动选择。</string>
+    <string name="prompt_auto_apps_disabled">已关闭包名自动同步。</string>
 </resources>

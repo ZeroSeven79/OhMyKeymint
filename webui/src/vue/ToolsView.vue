@@ -142,7 +142,7 @@ function isActiveBusy(event: ToolEvent): boolean {
           @click="runTool(item.event)"
         >
           <template #start>
-            <span class="preference-icon">
+            <span class="preference-icon" aria-hidden="true">
               <MiuixProgressIndicator
                 v-if="isActiveBusy(item.event)"
                 type="circular"
@@ -157,3 +157,13 @@ function isActiveBusy(event: ToolEvent): boolean {
     </section>
   </section>
 </template>
+
+<style scoped>
+/* Let taps on the leading icon fall through to the preference row. */
+.preference-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+</style>

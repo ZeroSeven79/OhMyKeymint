@@ -4,9 +4,9 @@ import {
   MiuixButton,
   MiuixDialog,
   MiuixProgressIndicator,
-  MiuixSwitchPreference,
 } from 'miuix-vue'
 import { Cli, type SoterHalState } from '../cli'
+import SwitchRow from './SwitchRow.vue'
 import { i18n } from '../i18n'
 import { isDev } from '../utils/dev'
 
@@ -146,7 +146,7 @@ async function apply(): Promise<void> {
         <p class="soter-hal-dialog__warning">
           {{ tr('soter_hal_warning', 'This feature may cause probabilistic bans of Douyin accounts and other unknown issues. Please consider carefully before enabling it.') }}
         </p>
-        <MiuixSwitchPreference
+        <SwitchRow
           v-model="enabled"
           :title="tr('soter_hal_enabled', 'Enable feature')"
           :disabled="busy"
