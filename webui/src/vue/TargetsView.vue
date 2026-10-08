@@ -202,6 +202,9 @@ function setIconState(packageName: string, state: IconState): void {
 
 function setSelected(entry: SelectableAppEntry, selected: boolean): void {
   if (props.loading || menuOpen.value || selectingRecommended.value) return
+  // While the automatic manager owns the list, individual picks are ignored:
+  // the next install/uninstall refresh would overwrite them anyway.
+  if (manualEditsLocked.value) return
   props.appList.setTargetSelected(entry, selected)
 }
 
@@ -532,7 +535,9 @@ defineExpose({
           v-memo="[entry.selected, entry.selectedForAllUsers, entry.appName, entry.targetKey, entry.currentUser, iconState(entry.packageName), selectingRecommended]"
           :key="entry.targetKey"
           :model-value="entry.selected"
-          :disabled="selectingRecommended"
+          class="targets-entry"
+          :class="{ 'targets-entry--locked': manualEditsLocked }"
+          :disabled="selectingRecommended || manualEditsLocked"
           :title="entry.appName"
           :summary="entrySummary(entry)"
           location="end"
@@ -541,7 +546,7 @@ defineExpose({
           <template #end>
             <MiuixIconButton
               :aria-label="translate('app_patch_title', 'App patch levels')"
-              :disabled="selectingRecommended"
+              :disabled="selectingRecommended || manualEditsLocked"
               @click.stop="openPatchProfile(entry)"
             >
               <MiuixIcon :icon="Tune" :size="20" />
@@ -1160,5 +1165,18 @@ defineExpose({
 
 .mini-switch--on .mini-switch__thumb {
   transform: translateX(17px);
+}
+
+/* Locked state for individual app rows while the automatic manager owns the
+   list. The component library keeps normal colours when disabled, so the
+   dimmed look is drawn here. */
+.targets-list .targets-entry--locked {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.targets-list .targets-entry--locked :deep(.m-text),
+.targets-list .targets-entry--locked :deep(.m-text-summary) {
+  color: var(--m-color-on-surface-variant-summary);
 }
 </style>
