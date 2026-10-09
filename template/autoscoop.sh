@@ -51,7 +51,7 @@ com.google.android.gms
 com.android.vending
 com.coloros.sceneservice"
 
-# Mirrors the WebUI recommended-selection exclusion list exactly, so anything
+# Mirrors the WebUI recommended-selection exclusion list, so anything
 # "Select recommended apps" skips is skipped here too. Add further entries to
 # /data/adb/omk/autoscoop.exclude, one package name per line.
 ROOT_TOOLS="me.weishu.kernelsu
@@ -61,7 +61,6 @@ com.topjohnwu.magisk
 io.github.huskydg.magisk
 eu.chainfire.supersu
 com.noshufou.android.su
-thirdpartyninja.hidden.magiskdetector
 org.lsposed.manager
 de.robv.android.xposed.installer
 org.meowcat.edxposed.manager
@@ -69,7 +68,9 @@ moe.shizuku.privileged.api
 rikka.sui
 com.tsng.hidemyapplist
 org.frknkrc44.hma_oss
-bin.mt.plus"
+bin.mt.plus
+bin.mt.plus.canary
+com.termux"
 
 umask 022
 
