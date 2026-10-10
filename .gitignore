@@ -39,6 +39,5 @@ __pycache__/
 
 # WebUI build dependencies and output
 node_modules/
-webui/node_modules/
 webui/dist/
 *.exe
