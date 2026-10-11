@@ -47,7 +47,13 @@ start_daemon_with_arg() {
     rm -f "$pidfile"
   fi
 
-  nohup sh "$script" "$arg" >/dev/null 2>&1 &
+  # Detach from the boot shell: setsid leaves the caller's session and
+  # </dev/null releases its stdin, so nothing holds a terminal open.
+  if command -v setsid >/dev/null 2>&1; then
+    setsid sh "$script" "$arg" </dev/null >/dev/null 2>&1 &
+  else
+    nohup sh "$script" "$arg" </dev/null >/dev/null 2>&1 &
+  fi
   pid=$!
   echo $pid > "$pidfile"
   sleep 1

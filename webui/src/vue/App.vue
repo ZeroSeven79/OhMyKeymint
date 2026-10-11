@@ -483,8 +483,12 @@ async function syncPatch(restore: boolean): Promise<void> {
 
 async function refreshAutomation(): Promise<void> {
   if (isDev()) return
-  await ensureDaemon()
   automation.value = await readAutomationState()
+  // Only touch the background helper when the automation is actually on.
+  // Every bridge call keeps a callback pending, and an unused daemon just adds
+  // one more window where the caller can go away mid-flight.
+  if (!automation.value.autoApps) return
+  await ensureDaemon()
 }
 
 async function onAutoAppsChange(enabled: boolean): Promise<void> {
@@ -505,6 +509,9 @@ async function onAutoAppsChange(enabled: boolean): Promise<void> {
     }
 
     if (enabled) {
+      // The refresh path skips the helper while the automation is off, so make
+      // sure it is running now that it has been turned on.
+      await ensureDaemon()
       // Prefer the size the refresh actually wrote. Recounting after a reload
       // reads the list back through the bridge, which can disagree with the
       // write by a package and report a different number on every toggle.

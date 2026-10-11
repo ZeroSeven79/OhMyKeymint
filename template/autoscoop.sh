@@ -546,10 +546,19 @@ cmd_ensure() {
     rm -f "$pidfile" 2>/dev/null
   fi
 
-  nohup sh "$MODDIR/autoscoop.sh" daemon >/dev/null 2>&1 &
+  # Detach fully from the caller: setsid drops the process out of the caller's
+  # session/process group and </dev/null releases the caller's stdin, so the
+  # child never keeps a handle on the terminal that started it. Do not block
+  # here either: the caller may be a WebUI shell that goes away at any moment,
+  # and a long wait leaves a callback pending on a context that is being torn
+  # down. The daemon writes its own pidfile once it is up.
+  if command -v setsid >/dev/null 2>&1; then
+    setsid sh "$MODDIR/autoscoop.sh" daemon </dev/null >/dev/null 2>&1 &
+  else
+    nohup sh "$MODDIR/autoscoop.sh" daemon </dev/null >/dev/null 2>&1 &
+  fi
   launched=$!
   echo "$launched" >"$pidfile" 2>/dev/null
-  sleep 3
 
   if kill -0 "$launched" 2>/dev/null; then
     echo "started"
