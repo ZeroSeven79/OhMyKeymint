@@ -79,6 +79,8 @@ RESETPROP_BIN="$(command -v resetprop 2>/dev/null)"
 if [ -z "$RESETPROP_BIN" ]; then
   if [ -x /data/adb/ksu/bin/resetprop ]; then
     RESETPROP_BIN=/data/adb/ksu/bin/resetprop
+  elif [ -x /data/adb/ap/bin/resetprop ]; then
+    RESETPROP_BIN=/data/adb/ap/bin/resetprop
   elif [ -x /data/adb/magisk/resetprop ]; then
     RESETPROP_BIN=/data/adb/magisk/resetprop
   fi
@@ -92,23 +94,6 @@ check_reset_prop() {
   [ -z "$VALUE" ] || [ "$VALUE" = "$EXPECTED" ] || "$RESETPROP_BIN" -n "$NAME" "$EXPECTED"
 }
 
-check_missing_prop() {
-  local NAME="$1"
-  local EXPECTED="$2"
-  local VALUE
-  VALUE=$("$RESETPROP_BIN" "$NAME")
-  [ -z "$VALUE" ] && "$RESETPROP_BIN" -n "$NAME" "$EXPECTED"
-}
-
-check_missing_match_prop() {
-  local NAME="$1"
-  local EXPECTED="$2"
-  local VALUE
-  VALUE=$("$RESETPROP_BIN" "$NAME")
-  [ -z "$VALUE" ] || [ "$VALUE" = "$EXPECTED" ] || "$RESETPROP_BIN" -n "$NAME" "$EXPECTED"
-  [ -z "$VALUE" ] && "$RESETPROP_BIN" -n "$NAME" "$EXPECTED"
-}
-
 contains_reset_prop() {
   local NAME="$1"
   local CONTAINS="$2"
@@ -118,24 +103,30 @@ contains_reset_prop() {
   esac
 }
 
-sleep 20
-
 if [ -n "$RESETPROP_BIN" ]; then
   "$RESETPROP_BIN" -w sys.boot_completed 0
-
   check_reset_prop "init.svc.adbd" "stopped"
   check_reset_prop "partition.odm.verified" "1"
   check_reset_prop "partition.product.verified" "1"
   check_reset_prop "partition.system.verified" "1"
   check_reset_prop "partition.system_ext.verified" "1"
   check_reset_prop "partition.vendor.verified" "1"
+  check_reset_prop "persist.logd.size" ""
+  check_reset_prop "persist.logd.size.crash" ""
+  check_reset_prop "persist.logd.size.events" ""
+  check_reset_prop "persist.logd.size.main" ""
+  check_reset_prop "persist.logd.size.radio" ""
+  check_reset_prop "persist.logd.size.system" ""
+  check_reset_prop "persist.logd.size.tag" ""
   check_reset_prop "persist.sys.usb.config" "none"
   check_reset_prop "ro.adb.secure" "1"
   check_reset_prop "ro.boot.flash.locked" "1"
   check_reset_prop "ro.boot.realme.lockstate" "1"
   check_reset_prop "ro.boot.realmebootstate" "green"
   check_reset_prop "ro.boot.selinux" "enforcing"
+  check_reset_prop "ro.boot.vbmeta.device_state" "locked"
   check_reset_prop "ro.boot.vbmeta.hash_alg" "sha256"
+  check_reset_prop "ro.boot.verifiedbootstate" "green"
   check_reset_prop "ro.boot.veritymode" "enforcing"
   check_reset_prop "ro.boot.warranty_bit" "0"
   check_reset_prop "ro.build.tags" "release-keys"
@@ -152,33 +143,14 @@ if [ -n "$RESETPROP_BIN" ]; then
   check_reset_prop "ro.warranty_bit" "0"
   check_reset_prop "service.adb.root" "0"
   check_reset_prop "sys.oem_unlock_allowed" "0"
+  check_reset_prop "sys.usb.adb.disabled" ""
   check_reset_prop "sys.usb.config" "none"
-
-  check_missing_match_prop "ro.boot.vbmeta.device_state" "locked"
-  check_missing_match_prop "ro.boot.verifiedbootstate" "green"
-  check_missing_match_prop "vendor.boot.vbmeta.device_state" "locked"
-  check_missing_match_prop "vendor.boot.verifiedbootstate" "green"
-
-  # Hide adb debugging traces.
-  "$RESETPROP_BIN" -n "sys.usb.adb.disabled" ""
-
-  # Hide recovery boot mode.
+  check_reset_prop "vendor.boot.vbmeta.device_state" "locked"
+  check_reset_prop "vendor.boot.verifiedbootstate" "green"
   contains_reset_prop "ro.boot.bootmode" "recovery" "unknown"
   contains_reset_prop "ro.bootloader" "engineering" "release"
   contains_reset_prop "ro.bootmode" "recovery" "unknown"
   contains_reset_prop "ro.build.description" "test-keys" "release-keys"
   contains_reset_prop "vendor.boot.bootmode" "recovery" "unknown"
+  setprop ctl.restart logd
 fi
-
-#Hide Lsposed Logd
-if [ -n "$RESETPROP_BIN" ]; then
-  "$RESETPROP_BIN" -n persist.logd.size ""
-  "$RESETPROP_BIN" -n persist.logd.size.crash ""
-  "$RESETPROP_BIN" -n persist.logd.size.events ""
-  "$RESETPROP_BIN" -n persist.logd.size.main ""
-  "$RESETPROP_BIN" -n persist.logd.size.radio ""
-  "$RESETPROP_BIN" -n persist.logd.size.system ""
-  "$RESETPROP_BIN" -n persist.logd.size.tag ""
-fi
-
-setprop ctl.restart logd
