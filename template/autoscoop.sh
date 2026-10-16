@@ -18,13 +18,14 @@ MODDIR=${0%/*}
 # the script is invoked through a relative path. Fall back to the current dir.
 [ "$MODDIR" = "$0" ] && MODDIR=.
 STATE_DIR=/data/adb/omk
-MODULE_DIR=$MODDIR
 
 CONF_FILE=$STATE_DIR/autoscoop.conf
 AUTO_PKG_FILE=$STATE_DIR/autoscoop.packages
 EXCLUDE_FILE=$STATE_DIR/autoscoop.exclude
 # Last automatic result plus a fingerprint of the installed set. Separate from
-# the WebUI's copy because the two enumerate packages differently.
+# the WebUI's copy because the two enumerate packages differently; the package
+# ledger above is shared and stays the single source of truth for which entries
+# are automatic.
 AUTO_STATE_FILE=$STATE_DIR/autoscoop.state.sh
 PACKAGES_LIST=/data/system/packages.list
 
@@ -43,9 +44,19 @@ INOTIFY_LOCK=$STATE_DIR/.inotify-lock
 
 TMP_DIR=$STATE_DIR/.autoscoop-tmp
 
-# The three Google packages that the WebUI's recommended selection always adds.
-# They belong to the baseline attestation surface and are part of the automatic
-# set so opening the switch adds them without a separate recommended pass.
+# A scoop entry is either a bare package name (every profile) or `pkg@userId`
+# for one profile. The WebUI writes the scoped form whenever an app is ticked
+# inside a specific profile, and it is also how "Add System App" records a
+# pick, so both shapes have to survive every filter below. Dropping the
+# `@userId` suffix silently widened those rules to every profile - and for
+# system apps removed them outright, because the automatic set only ever
+# writes bare names.
+PKG_TARGET_RE='^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*(@[0-9]+)?$'
+
+# Baseline attestation surface: always automatic, on every refresh, for as long
+# as the package is installed. Unticking one in the WebUI is therefore undone by
+# the next refresh, which is what keeps the attestation set intact. Every other
+# system app belongs to the user once they tick or untick it.
 RECOMMENDED_SYSTEM_PKGS="com.google.android.gsf
 com.google.android.gms
 com.android.vending
@@ -107,17 +118,13 @@ write_conf_line() {
   fi
 }
 
-is_package_name() {
-  echo "$1" | grep -Eq '^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$'
-}
-
 find_binary() {
   name=$1
   for candidate in \
     "$STATE_DIR/$name" \
-    "$MODULE_DIR/$name" \
-    "$MODULE_DIR/libs/arm64-v8a/$name" \
-    "$MODULE_DIR/libs/x86_64/$name" \
+    "$MODDIR/$name" \
+    "$MODDIR/libs/arm64-v8a/$name" \
+    "$MODDIR/libs/x86_64/$name" \
     "/data/adb/modules/oh_my_keymint/libs/arm64-v8a/$name"
   do
     if [ -x "$candidate" ]; then
@@ -138,7 +145,7 @@ get_scoop() {
   output=$("$inject" --webui-get-scoop 2>/dev/null) || return 1
   echo "$output" | tr -d '[]"' | tr ',' '\n' \
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed '/^$/d' \
-    | grep -E '^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$' | sort -u
+    | grep -E "$PKG_TARGET_RE" | sort -u
   return 0
 }
 
@@ -146,7 +153,7 @@ set_scoop() {
   # $1: newline separated package names
   inject=$(find_binary inject) || return 1
   body=$(echo "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed '/^$/d' \
-    | grep -E '^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$' | sort -u)
+    | grep -E "$PKG_TARGET_RE" | sort -u)
   json=$(echo "$body" | awk 'NF { printf "%s\"%s\"", sep, $0; sep = "," }')
   payload=$(printf '[%s]' "$json" | base64 | tr -d '\n')
   [ -n "$payload" ] || return 1
@@ -235,7 +242,7 @@ apply_auto_packages() {
 
   last_auto=""
   if [ -f "$AUTO_PKG_FILE" ]; then
-    last_auto=$(grep -E '^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$' "$AUTO_PKG_FILE" 2>/dev/null | sort -u)
+    last_auto=$(grep -E "$PKG_TARGET_RE" "$AUTO_PKG_FILE" 2>/dev/null | sort -u)
   fi
 
   mkdir -p "$TMP_DIR" 2>/dev/null
@@ -251,10 +258,28 @@ apply_auto_packages() {
   manual=$(awk 'FILENAME == ARGV[1] { seen[$0] = 1; next } !($0 in seen)' \
     "$TMP_DIR/last_auto" "$TMP_DIR/current" 2>/dev/null)
 
+  # Bare names of the entries the user scoped to one profile (`pkg@userId`).
+  # The automatic set only ever writes all-profile rules, so keeping both
+  # shapes would list the package twice; the scoped rule is the user's own and
+  # wins, so the bare entry is dropped from the automatic side.
+  echo "$manual" >"$TMP_DIR/manual" 2>/dev/null
+  sed -n 's/@[0-9][0-9]*$//p' "$TMP_DIR/manual" 2>/dev/null \
+    | sed '/^[[:space:]]*$/d' | sort -u >"$TMP_DIR/scoped" 2>/dev/null
+  # Drops every name listed in $TMP_DIR/scoped from the list on stdin.
+  drop_scoped() {
+    awk 'FILENAME == ARGV[1] { drop[$0] = 1; next } !($0 in drop)' \
+      "$TMP_DIR/scoped" "$1" 2>/dev/null
+  }
+
   scanned=$(scan_packages)
   if [ -z "$scanned" ]; then
     return 1
   fi
+
+  # Recomputed every run, so the baseline follows the device: a package that
+  # stops being installed drops out on its own instead of lingering as an entry
+  # nobody owns.
+  baseline=$(installed_recommended_system_pkgs)
 
   # Nothing was installed or removed since the last run, so reuse that result.
   # Recomputing can differ by a package because the enumeration is allowed to
@@ -264,14 +289,18 @@ apply_auto_packages() {
   # The baseline set is folded into the fingerprint too. When a package stops
   # qualifying - for example a build that never had `com.coloros.sceneservice`
   # - the stored result must be recomputed rather than reused.
-  recommended_system=$(installed_recommended_system_pkgs)
-  fingerprint=$(printf '%s\n' "$scanned" "$recommended_system" \
+  #
+  # Only the automatic portion is stored, never the merged result: replaying a
+  # merged snapshot would put a system app the user deliberately removed
+  # straight back.
+  fingerprint=$(printf '%s\n' "$scanned" "$baseline" \
     | md5sum 2>/dev/null | cut -d' ' -f1)
   if [ -n "$fingerprint" ] && [ -f "$AUTO_STATE_FILE" ]; then
     stored=$(sed -n '1p' "$AUTO_STATE_FILE" 2>/dev/null)
     if [ "$fingerprint" = "$stored" ]; then
-      reused=$(sed -n '2,$p' "$AUTO_STATE_FILE" 2>/dev/null \
-        | grep -E '^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$' | sort -u)
+      sed -n '2,$p' "$AUTO_STATE_FILE" 2>/dev/null \
+        | grep -E "$PKG_TARGET_RE" | sort -u >"$TMP_DIR/reused" 2>/dev/null
+      reused=$(drop_scoped "$TMP_DIR/reused")
       if [ -n "$reused" ]; then
         merged=$(
           {
@@ -294,34 +323,46 @@ apply_auto_packages() {
   fi
 
   echo "$scanned" >"$TMP_DIR/scanned" 2>/dev/null
-  auto=$(awk 'FILENAME == ARGV[1] { seen[$0] = 1; next } !($0 in seen)' \
-    "$TMP_DIR/exclude" "$TMP_DIR/scanned" 2>/dev/null)
-  [ -z "$auto" ] && auto=$scanned
+  awk 'FILENAME == ARGV[1] { seen[$0] = 1; next } !($0 in seen)' \
+    "$TMP_DIR/exclude" "$TMP_DIR/scanned" 2>/dev/null >"$TMP_DIR/auto" 2>/dev/null
+  [ -s "$TMP_DIR/auto" ] || echo "$scanned" >"$TMP_DIR/auto" 2>/dev/null
+  auto=$(drop_scoped "$TMP_DIR/auto")
+  echo "$baseline" >"$TMP_DIR/baseline" 2>/dev/null
+  baseline=$(drop_scoped "$TMP_DIR/baseline")
 
-  mkdir -p "$STATE_DIR" 2>/dev/null
-  echo "$auto" >"$AUTO_PKG_FILE" 2>/dev/null
-  chmod 0644 "$AUTO_PKG_FILE" 2>/dev/null
+  # Everything this run owns. Written to the ledger so the next run can tell
+  # automatic entries apart from the user's own.
+  automatic=$(
+    {
+      echo "$auto"
+      echo "$baseline"
+    } | sed '/^[[:space:]]*$/d' | sort -u
+  )
 
   merged=$(
     {
       echo "$manual"
       echo "$auto"
-      echo "$recommended_system"
+      echo "$baseline"
     } | sed '/^[[:space:]]*$/d' | sort -u
   )
 
   previous=$(echo "$current" | sort -u)
   if [ "$merged" = "$previous" ]; then
-    [ -n "$fingerprint" ] && { echo "$fingerprint"; echo "$merged"; } >"$AUTO_STATE_FILE" 2>/dev/null
+    mkdir -p "$STATE_DIR" 2>/dev/null
+    echo "$automatic" >"$AUTO_PKG_FILE" 2>/dev/null
+    chmod 0644 "$AUTO_PKG_FILE" 2>/dev/null
+    [ -n "$fingerprint" ] && { echo "$fingerprint"; echo "$automatic"; } >"$AUTO_STATE_FILE" 2>/dev/null
     echo "$(echo "$merged" | grep -c .)"
     return 0
   fi
 
   if set_scoop "$merged"; then
-    [ -n "$fingerprint" ] && { echo "$fingerprint"; echo "$merged"; } >"$AUTO_STATE_FILE" 2>/dev/null
+    mkdir -p "$STATE_DIR" 2>/dev/null
+    echo "$automatic" >"$AUTO_PKG_FILE" 2>/dev/null
+    chmod 0644 "$AUTO_PKG_FILE" 2>/dev/null
+    [ -n "$fingerprint" ] && { echo "$fingerprint"; echo "$automatic"; } >"$AUTO_STATE_FILE" 2>/dev/null
     count=$(echo "$merged" | grep -c .)
-    scanned_count=$(echo "$auto" | grep -c .)
-    manual_count=$(echo "$manual" | grep -c .)
     echo "$count"
     return 0
   fi
@@ -435,7 +476,7 @@ find_inotifyd() {
 }
 
 write_inotify_handler() {
-  helper=$MODULE_DIR/autoscoop.sh
+  helper=$MODDIR/autoscoop.sh
   [ -f "$helper" ] || helper=/data/adb/modules/oh_my_keymint/autoscoop.sh
   cat >"$INOTIFY_HANDLER" <<EOF
 #!/system/bin/sh
@@ -501,14 +542,6 @@ cmd_daemon() {
   wait
 }
 
-first_autoscoop_pid() {
-  for pid in $(autoscoop_pids); do
-    echo "$pid"
-    return 0
-  done
-  return 1
-}
-
 # List PIDs whose command line looks like our daemon. Scanning /proc keeps this
 # independent of pgrep, which is not present on every device.
 autoscoop_pids() {
@@ -571,7 +604,7 @@ cmd_ensure() {
 }
 
 usage() {
-  echo "usage: autoscoop.sh {get|set k=v ...|sync-packages|disable-packages|status|ensure|daemon}"
+  echo "usage: autoscoop.sh {get|set k=v ...|sync-packages|disable-packages|status|pids|ensure|daemon}"
 }
 
 case "$1" in

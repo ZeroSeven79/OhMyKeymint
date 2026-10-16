@@ -8,25 +8,34 @@ const RECOMMENDED_SYSTEM_APPS = [
   'com.google.android.gsf',
   'com.google.android.gms',
   'com.android.vending',
+  // ColorOS "Smart Data Enhancement"; behaves like a Google service for
+  // attestation purposes on OPPO/OnePlus/realme builds.
   'com.coloros.sceneservice',
 ] as const
 
 const PACKAGE_INFO_BATCH_SIZE = 32
 
-const AUTO_PACKAGES_STORAGE_KEY = 'omk-auto-packages'
+/**
+ * Last automatic result, kept under /data/adb/omk so a module uninstall clears
+ * it together with the helper script's own state.
+ *
+ * It used to live in the WebUI's localStorage, which belongs to the host app
+ * (the KernelSU manager) rather than to the module: uninstalling the module
+ * left it behind, so a reinstall kept replaying an automatic set that no longer
+ * matched the freshly seeded list.
+ */
+const AUTO_LEDGER_FILE = '/data/adb/omk/autoscoop.webui.ledger'
 
 /** User-maintained additions, shared with the background helper script. */
 const AUTO_EXCLUDE_FILE = '/data/adb/omk/autoscoop.exclude'
 
-// The permission scan that powers the recommended selection can fail on some
-// devices (dumpsys timeouts are common). Remember what it found so the
-// automatic sync can still skip those apps on a later run instead of silently
-// falling back to the static list only.
-const RECOMMENDED_EXCLUDE_CACHE_KEY = 'omk-recommended-exclude'
-
 // System apps the user ticked explicitly through "Add System App". Kept out of
 // the automatic set's reach so a later refresh cannot undo them.
-const USER_SYSTEM_APPS_KEY = 'omk-user-system-apps'
+//
+// File-backed for the same reason as the ledger: localStorage outlives the
+// module, so a reinstall used to keep ticking system apps the user had since
+// cleared.
+const USER_SYSTEM_APPS_FILE = '/data/adb/omk/autoscoop.user_system'
 
 /**
  * Last automatic result, paired with a fingerprint of the installed set.
@@ -36,7 +45,16 @@ const USER_SYSTEM_APPS_KEY = 'omk-user-system-apps'
  * enumeration or the permission scan resolved differently. Reusing the stored
  * result while the fingerprint is unchanged makes the switch idempotent.
  */
-const AUTO_STATE_FILE = '/data/adb/omk/autoscoop.state'
+// Deliberately NOT the helper script's `autoscoop.state`: that file pairs an
+// md5 fingerprint with the script's own automatic set, while this one pairs a
+// djb2 fingerprint with the WebUI's. Sharing it made each side overwrite the
+// other's fingerprint so neither could ever recognise its own snapshot.
+const AUTO_STATE_FILE = '/data/adb/omk/autoscoop.webui.state'
+
+/** Accepts both `pkg` and the per-profile `pkg@userId` form. */
+function isValidScoopTarget(value: unknown): value is string {
+  return parseScoopTarget(value) !== null
+}
 
 /** Order-independent fingerprint of a package name list. */
 function fingerprintOf(names: readonly string[]): string {
@@ -50,7 +68,12 @@ function fingerprintOf(names: readonly string[]): string {
 
 interface AutoState {
   fingerprint: string
-  merged: string[]
+  /**
+   * Only the entries this run's automatic set owns - never a merged snapshot.
+   * Replaying a merged snapshot silently restored whatever the list looked
+   * like before the user's last edit.
+   */
+  automatic: string[]
 }
 
 async function readAutoState(): Promise<AutoState | null> {
@@ -59,19 +82,21 @@ async function readAutoState(): Promise<AutoState | null> {
     if (result.errno !== 0) return null
     const lines = result.stdout.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '')
     if (lines.length < 1) return null
-    const [fingerprint, ...merged] = lines
+    const [fingerprint, ...automatic] = lines
     if (fingerprint === undefined) return null
-    return { fingerprint, merged: merged.filter(isValidPackageName) }
+    // `isValidPackageName` rejects `pkg@userId`, which emptied the list on
+    // every read and dropped the user's per-profile rules.
+    return { fingerprint, automatic: automatic.filter(isValidScoopTarget) }
   } catch {
     return null
   }
 }
 
-async function writeAutoState(fingerprint: string, merged: readonly string[]): Promise<void> {
-  if (fingerprint === '' || merged.length === 0) return
+async function writeAutoState(fingerprint: string, automatic: readonly string[]): Promise<void> {
+  if (fingerprint === '' || automatic.length === 0) return
   try {
     // Package names match [A-Za-z0-9_.] so they need no shell quoting here.
-    const body = [fingerprint, ...merged].join(' ')
+    const body = [fingerprint, ...automatic].join(' ')
     await exec(
       `/system/bin/sh -c 'mkdir -p /data/adb/omk 2>/dev/null; printf "%s\\n" ${body} > ${AUTO_STATE_FILE}'`,
     )
@@ -80,23 +105,36 @@ async function writeAutoState(fingerprint: string, merged: readonly string[]): P
   }
 }
 
-function readStoredList(key: string): string[] {
+/**
+ * Newline-separated package names from a file under /data/adb/omk.
+ *
+ * Everything the automatic sync remembers lives there rather than in
+ * localStorage so that uninstalling the module clears it: the WebUI storage
+ * belongs to the host app and survives, which made a reinstall restore picks
+ * the user had already cleared.
+ */
+async function readListFile(
+  path: string,
+  validate: (value: unknown) => boolean,
+): Promise<string[]> {
   try {
-    const stored = window.localStorage.getItem(key)
-    if (stored === null) return []
-    const parsed: unknown = JSON.parse(stored)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(isValidPackageName)
+    const result = await exec(`/system/bin/sh -c 'cat ${path} 2>/dev/null'`)
+    if (result.errno !== 0) return []
+    return result.stdout.split(/\r?\n/).map(line => line.trim()).filter(validate)
   } catch {
     return []
   }
 }
 
-function writeStoredList(key: string, values: readonly string[]): void {
+async function writeListFile(path: string, values: readonly string[]): Promise<void> {
   try {
-    window.localStorage.setItem(key, JSON.stringify(values))
+    // Package names and `pkg@userId` entries match [A-Za-z0-9_.@]; no quoting.
+    const body = values.join(' ')
+    await exec(
+      `/system/bin/sh -c 'mkdir -p /data/adb/omk 2>/dev/null; printf "%s\\n" ${body} > ${path}'`,
+    )
   } catch {
-    // Persistence is a refinement; the in-memory result stays correct.
+    // Best effort: the in-memory result for this run stays correct.
   }
 }
 
@@ -154,8 +192,6 @@ const ROOT_TOOL_PACKAGES = new Set([
   'com.tsng.hidemyapplist',
   'org.frknkrc44.hma_oss',
   'bin.mt.plus',
-  'bin.mt.plus.canary',
-  'com.termux',
 ])
 
 function afterPaint(): Promise<void> {
@@ -445,32 +481,54 @@ export class AppList {
     if (isDev()) return null
     await this.fetch()
 
-    const previousAuto = new Set<string>(this.#readAutoLedger())
+    const previousAuto = new Set<string>(await this.#readAutoLedger())
     // Anything the user put here by hand survives, plus whatever they ticked
     // through "Add System App" - the automatic set must never undo those.
-    const userSystemApps = new Set(readStoredList(USER_SYSTEM_APPS_KEY))
+    const userSystemApps = new Set(
+      await readListFile(USER_SYSTEM_APPS_FILE, isValidScoopTarget),
+    )
+
+    // Manual entries are resolved before either branch runs: the reuse branch
+    // needs them too, otherwise replaying the stored automatic set would drop
+    // everything the user ticked since the snapshot was written.
+    const manual = this.#config.get('target').filter(name => !previousAuto.has(name))
+
+    // A `pkg@userId` entry is the user's own scoping. The automatic set only
+    // writes all-profile names, so keeping both would list the package twice;
+    // the scoped rule wins and the bare entry is dropped.
+    const scopedManually = new Set(
+      manual.filter(name => name.includes('@')).map(name => name.slice(0, name.indexOf('@'))),
+    )
+    const dropScoped = (names: readonly string[]): string[] => (
+      scopedManually.size === 0 ? [...names] : names.filter(name => !scopedManually.has(name))
+    )
 
     // Nothing has been installed or removed since the last run, so reuse that
     // result instead of recomputing. The two computations can disagree by a
     // package - the enumeration and the permission scan are both allowed to
     // resolve differently between runs - which made re-toggling the switch
     // report a different count each time.
+    //
+    // Only the automatic portion is replayed. Replaying the merged result used
+    // to overwrite `target` with a snapshot taken before the user's latest
+    // edit, which put an unticked system app back and threw away one they had
+    // just added.
     const fingerprint = fingerprintOf(this.#entries.map(entry => entry.packageName))
     const stored = await readAutoState()
-    if (stored !== null && stored.fingerprint === fingerprint && stored.merged.length > 0) {
-      const reused = [...new Set([...stored.merged, ...userSystemApps])].sort()
+    if (stored !== null && stored.fingerprint === fingerprint && stored.automatic.length > 0) {
+      const merged = [
+        ...new Set([...manual, ...dropScoped(stored.automatic), ...userSystemApps]),
+      ].sort()
       const current = this.#config.get('target')
-      if (reused.length === current.length
-          && reused.every((name, index) => current[index] === name)) {
+      if (merged.length === current.length
+          && merged.every((name, index) => current[index] === name)) {
         return null
       }
-      this.#config.set('target', reused)
+      this.#config.set('target', merged)
       this.#emitChange()
       await this.save()
-      return reused.length
+      return merged.length
     }
-
-    const manual = this.#config.get('target').filter(name => !previousAuto.has(name))
 
     const userExcluded = new Set(await readUserExclusions())
     let auto: string[]
@@ -485,11 +543,11 @@ export class AppList {
         .map(entry => entry.packageName)
     } catch {
       // Classification is unavailable, so the automatic set cannot be trusted.
-      // Reuse the static list plus every persisted finding; the file-backed
-      // entries are what a previous successful scan recorded.
+      // Reuse the static list plus every persisted finding; `userExcluded` is
+      // the exclude file, which also holds what an earlier successful scan
+      // recorded through `persistDiscoveredExclusions`.
       const excluded = new Set([
         ...ROOT_TOOL_PACKAGES,
-        ...readStoredList(RECOMMENDED_EXCLUDE_CACHE_KEY),
         ...userExcluded,
       ])
       const recommendedSystem = new Set<string>(RECOMMENDED_SYSTEM_APPS)
@@ -499,42 +557,47 @@ export class AppList {
         .map(entry => entry.packageName)
     }
 
+    // Attestation baseline, mirroring the helper script: these system apps are
+    // automatic for as long as they are installed, so unticking one is undone
+    // by the next refresh - which is what keeps the attestation set intact.
+    // Every other system app belongs to the user once they tick or untick it.
+    const recommendedSystem = new Set<string>(RECOMMENDED_SYSTEM_APPS)
+    const baseline = this.#entries
+      .filter(entry => entry.isSystem && recommendedSystem.has(entry.packageName))
+      .map(entry => entry.packageName)
+
+    auto = dropScoped([...new Set([...auto, ...baseline])])
+
     if (auto.length === 0) return null
-    this.#writeAutoLedger(auto)
+    await this.#writeAutoLedger(auto)
 
     const merged = [...new Set([...manual, ...auto, ...userSystemApps])].sort()
     if (merged.length === this.#config.get('target').length
         && merged.every((name, index) => this.#config.get('target')[index] === name)) {
-      await writeAutoState(fingerprint, merged)
+      await writeAutoState(fingerprint, auto)
       return null
     }
 
     this.#config.set('target', merged)
     this.#emitChange()
     await this.save()
-    await writeAutoState(fingerprint, merged)
+    await writeAutoState(fingerprint, auto)
     return merged.length
   }
 
-  #readAutoLedger(): string[] {
-    try {
-      const stored = window.localStorage.getItem(AUTO_PACKAGES_STORAGE_KEY)
-      if (stored === null) return []
-      const parsed: unknown = JSON.parse(stored)
-      if (!Array.isArray(parsed)) return []
-      return parsed.filter(isValidPackageName)
-    } catch {
-      return []
-    }
+  /**
+   * Which packages the automatic set currently owns.
+   *
+   * Only used to tell a user's own entry apart from an automatic one, so it is
+   * allowed to be stale - but it is stored in /data/adb/omk rather than
+   * localStorage so an uninstall clears it along with the rest of the state.
+   */
+  async #readAutoLedger(): Promise<string[]> {
+    return readListFile(AUTO_LEDGER_FILE, isValidScoopTarget)
   }
 
-  #writeAutoLedger(packages: readonly string[]): void {
-    try {
-      window.localStorage.setItem(AUTO_PACKAGES_STORAGE_KEY, JSON.stringify(packages))
-    } catch {
-      // The ledger only refines manual-vs-automatic bookkeeping; losing it is
-      // not fatal because the merged list stays correct either way.
-    }
+  async #writeAutoLedger(packages: readonly string[]): Promise<void> {
+    await writeListFile(AUTO_LEDGER_FILE, packages)
   }
 
   deselectAll(): void {
@@ -543,7 +606,7 @@ export class AppList {
     this.#emitChange()
   }
 
-  applySystemAppSelection(checkedApps: readonly string[]): void {
+  async applySystemAppSelection(checkedApps: readonly string[]): Promise<void> {
     const installedSystemTargets = new Set(
       this.#entries.filter(entry => entry.isSystem).map(entry => entry.targetKey),
     )
@@ -562,10 +625,13 @@ export class AppList {
       else targets.delete(target)
     }
     this.#config.set('target', [...targets])
+    this.#emitChange()
     // Remember the picks so the automatic sync keeps them: system apps are
     // outside its scope, so without this a later refresh would drop them.
-    writeStoredList(USER_SYSTEM_APPS_KEY, [...checked])
-    this.#emitChange()
+    //
+    // Awaited rather than fired off so a refresh started right after saving
+    // cannot read the file before the new picks have landed in it.
+    await writeListFile(USER_SYSTEM_APPS_FILE, [...checked])
   }
 
   async save(): Promise<void> {
@@ -669,9 +735,9 @@ export class AppList {
     }
     // Keep what the scan found. It is not guaranteed to succeed on every
     // launch - `dumpsys` times out on busy devices - so a later run whose
-    // probes fail can still skip these apps.
+    // probes fail can still skip these apps. The exclude file is the single
+    // durable copy; the helper script reads the same one.
     const discovered = [...excluded].filter(name => !ROOT_TOOL_PACKAGES.has(name))
-    writeStoredList(RECOMMENDED_EXCLUDE_CACHE_KEY, discovered)
     void persistDiscoveredExclusions(discovered)
 
     return new Set([

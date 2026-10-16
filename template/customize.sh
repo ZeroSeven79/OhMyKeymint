@@ -2,7 +2,7 @@
 SKIPUNZIP=1
 
 SONAME="Oh My Keymint"
-SUPPORTED_ABIS="arm64 x64"
+SUPPORTED_ABIS="arm64 arm64-v8a"
 MIN_SDK=29
 
 if [ "$BOOTMODE" ] && [ "$KSU" ]; then

@@ -51,14 +51,6 @@ export async function writeAutomationState(
   return parseState(await run(`${HELPER} set ${assignments.join(' ')}`))
 }
 
-/** Returns the number of package names now present in scoop. */
-export async function syncPackagesNow(): Promise<number> {
-  const output = await run(`${HELPER} sync-packages`)
-  const count = Number(output.split(/\s+/)[1])
-  if (!output.startsWith('ok')) throw new Error('Automatic package refresh did not complete')
-  return Number.isFinite(count) ? count : 0
-}
-
 export async function disableAutoPackages(): Promise<void> {
   await run(`${HELPER} disable-packages`)
 }

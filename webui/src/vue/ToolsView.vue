@@ -157,13 +157,3 @@ function isActiveBusy(event: ToolEvent): boolean {
     </section>
   </section>
 </template>
-
-<style scoped>
-/* Let taps on the leading icon fall through to the preference row. */
-.preference-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-</style>

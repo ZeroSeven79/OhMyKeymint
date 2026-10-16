@@ -348,9 +348,9 @@ function setSystemSelected(targetKey: string, selected: boolean): void {
   systemSelection.value = nextSelection
 }
 
-function saveSystemApps(): void {
+async function saveSystemApps(): Promise<void> {
   if (props.loading) return
-  props.appList.applySystemAppSelection([...systemSelection.value])
+  await props.appList.applySystemAppSelection([...systemSelection.value])
   systemSheetOpen.value = false
 }
 
