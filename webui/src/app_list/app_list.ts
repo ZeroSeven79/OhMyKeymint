@@ -8,8 +8,6 @@ const RECOMMENDED_SYSTEM_APPS = [
   'com.google.android.gsf',
   'com.google.android.gms',
   'com.android.vending',
-  // ColorOS "Smart Data Enhancement"; behaves like a Google service for
-  // attestation purposes on OPPO/OnePlus/realme builds.
   'com.coloros.sceneservice',
 ] as const
 
